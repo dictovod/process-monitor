@@ -109,6 +109,4 @@ reboot
 ```bash
 systemctl status process-monitor.service
 ```
-
----
-Скажи, что хочешь добавить — и я расширю README под твой стиль.
+<img width="1080" height="2340" alt="image" src="https://github.com/user-attachments/assets/c10ffb3d-5600-4ca9-9f0b-760aad22c99d" />
