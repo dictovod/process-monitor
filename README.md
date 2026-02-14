@@ -23,9 +23,9 @@
 ## 📁 Структура проекта
 
 ```
-process-monitor/
-├── monitor.py
-└── requirements.txt
+process-monitor/  
+├── monitor.py  
+└── requirements.txt  
 ```
 
 ## 🔧 Установка
