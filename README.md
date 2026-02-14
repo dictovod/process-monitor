@@ -112,12 +112,12 @@ systemctl status process-monitor.service
 <img width="1080" height="2340" alt="image" src="https://github.com/user-attachments/assets/c10ffb3d-5600-4ca9-9f0b-760aad22c99d" />
 
 ##Остановить но оставить автозапуск:  
-`root@6months:~# systemctl stop process-monitor.service  
+root@6months:~# systemctl stop process-monitor.service  
 root@6months:~# pgrep -a python3  
 root@6months:~#  
-`
+
 ## После перезагрузки запустится автоматически  
-`root@6months:~# cat /etc/systemd/system/process-monitor.service  
+root@6months:~# cat /etc/systemd/system/process-monitor.service  
 [Unit]  
 Description=Process Monitor with Telegram  
 After=network.target  
@@ -132,4 +132,4 @@ StandardOutput=journal
 StandardError=journal  
 [Install]  
 WantedBy=multi-user.target  
-root@6months:~#  `
+root@6months:~#  
