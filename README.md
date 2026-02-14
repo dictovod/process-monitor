@@ -111,7 +111,7 @@ systemctl status process-monitor.service
 ```
 <img width="1080" height="2340" alt="image" src="https://github.com/user-attachments/assets/c10ffb3d-5600-4ca9-9f0b-760aad22c99d" />
 
-##Остановить но оставить автозапуск:  
+## Остановить но оставить автозапуск:  
 systemctl stop process-monitor.service  
 pgrep -a python3  
 
