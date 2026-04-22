@@ -30,6 +30,9 @@ TELEGRAM_TOKEN = "сюда_вставь_свой_токен"
 ### 3. Запусти сервис
 
 ```bash
+pip install psutil requests --break-system-packages
+```
+```bash
 systemctl daemon-reload
 systemctl enable process-monitor
 systemctl start process-monitor
