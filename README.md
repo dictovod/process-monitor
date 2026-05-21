@@ -135,3 +135,31 @@ systemctl stop process-monitor
 
 **Хочу уведомления только о конкретных программах**  
 → Переключи режим на ⭐ Белый список и добавляй процессы кнопкой в уведомлении
+
+
+Вот текст для README:
+
+---
+
+## 🔑 Замена Telegram токена при компрометации
+
+### 1. Получить новый токен
+Написать [@BotFather](https://t.me/BotFather) → выбрать бота → **Revoke current token** → скопировать новый токен.
+
+### 2. Заменить токен на сервере
+```bash
+systemctl stop process-monitor
+sed -i "s/TELEGRAM_TOKEN = \".*\"/TELEGRAM_TOKEN = \"НОВЫЙ_ТОКЕН\"/" /root/Desktop/process-monitor/monitor.py
+systemctl start process-monitor
+```
+
+### 3. Проверить
+```bash
+grep 'TELEGRAM_TOKEN' /root/Desktop/process-monitor/monitor.py
+systemctl status process-monitor | head -5
+```
+
+### ⚠️ Важно
+- Никогда не публикуй токен в открытых репозиториях
+- В этом репо токен хранится прямо в коде — замени его перед деплоем
+- Старый токен после отзыва у BotFather перестаёт работать немедленно
