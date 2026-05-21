@@ -159,6 +159,49 @@ grep 'TELEGRAM_TOKEN' /root/Desktop/process-monitor/monitor.py
 systemctl status process-monitor | head -5
 ```
 
+
+Для новичка:  
+Уже на сервере s1, выполни:
+
+```bash
+wget -O /root/monitor.py "https://raw.githubusercontent.com/dictovod/process-monitor/main/monitor_server.py"
+```
+
+Затем проверь что скачалось:
+
+```bash
+head -5 /root/monitor.py && wc -l /root/monitor.py
+```
+
+Скачалось отлично, 956 строк. Теперь нужно вставить токен и запустить:
+
+```bash
+sed -i "s/TELEGRAM_TOKEN = \".*\"/TELEGRAM_TOKEN = \"ВАШ_ТОКЕН\"/" /root/monitor.py
+```
+
+```bash
+nohup python3 /root/monitor.py >> /root/monitor.log 2>&1 &
+echo "PID: $!"
+```
+
+Или если хочешь через systemd как на s0:
+
+```bash
+cat > /etc/systemd/system/process-monitor.service << 'EOF'
+[Unit]
+Description=Process Monitor with Telegram
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /root/monitor.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload && systemctl enable --now process-monitor
+```
 ### ⚠️ Важно
 - Никогда не публикуй токен в открытых репозиториях
 - В этом репо токен хранится прямо в коде — замени его перед деплоем
