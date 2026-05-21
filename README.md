@@ -206,3 +206,7 @@ systemctl daemon-reload && systemctl enable --now process-monitor
 - Никогда не публикуй токен в открытых репозиториях
 - В этом репо токен хранится прямо в коде — замени его перед деплоем
 - Старый токен после отзыва у BotFather перестаёт работать немедленно
+
+
+Одна команда для обновления:  
+```bash <(wget -qO- https://raw.githubusercontent.com/dictovod/process-monitor/main/update.sh)```
