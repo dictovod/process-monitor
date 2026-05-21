@@ -1,0 +1,8 @@
+```MPATH=$(systemctl cat process-monitor 2>/dev/null | grep -oP 'ExecStart=.+python3 \K\S+') && TOKEN=$(grep -oP 'TELEGRAM_TOKEN = "\K[^"]+' $MPATH) && systemctl stop process-monitor && wget -qO $MPATH "https://raw.githubusercontent.com/dictovod/process-monitor/refs/heads/main/monitor_server.py" && python3 -c "
+import re
+src=open('$MPATH').read()
+src=re.sub(r'TELEGRAM_TOKEN = \"[^\"]+\"', 'TELEGRAM_TOKEN = \"$TOKEN\"', src)
+open('$MPATH','w').write(src)
+print('Path:', '$MPATH')
+print('Token:', '$TOKEN')
+" && systemctl start process-monitor && grep 'TELEGRAM_TOKEN' $MPATH | head -1```
