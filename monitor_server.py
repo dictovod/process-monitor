@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Process Monitor Pro — профессиональный Telegram-бот мониторинга процессов
-Версия 2.0
+Версия 2.1
 """
 
 import subprocess
@@ -15,7 +15,7 @@ def _install_deps():
         try:
             __import__(pkg)
         except ImportError:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "--quiet"])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "--quiet", "--break-system-packages"])
 
 _install_deps()
 
@@ -43,7 +43,9 @@ IGNORED_FILE  = f"{BASE_DIR}/ignored_processes.json"
 USERS_FILE    = f"{BASE_DIR}/active_users.json"
 SETTINGS_FILE = f"{BASE_DIR}/user_settings.json"
 WHITELIST_FILE= f"{BASE_DIR}/whitelist.json"
-STATS_FILE    = f"{BASE_DIR}/stats.json"
+STATS_FILE           = f"{BASE_DIR}/stats.json"
+IGNORED_MASKS_FILE   = f"{BASE_DIR}/ignored_masks.json"
+WHITELIST_MASKS_FILE = f"{BASE_DIR}/whitelist_masks.json"
 
 # ─── системные процессы (игнорируются по умолчанию) ───
 DEFAULT_SYSTEM = {
@@ -90,6 +92,8 @@ _lock               = Lock()
 known_pids:         Set[int]              = set()
 ignored_procs:      Set[str]             = set()
 whitelist_procs:    Set[str]             = set()
+ignored_masks:      Set[str]             = set()
+whitelist_masks:    Set[str]             = set()
 active_users:       Set[str]             = set()
 user_settings:      Dict[str, Dict]      = {}
 process_stats:      Dict[str, List]      = defaultdict(list)
@@ -118,6 +122,8 @@ def load_all() -> None:
     global ignored_procs, whitelist_procs, active_users, user_settings, process_stats
     ignored_procs   = set(_load(IGNORED_FILE,  list(DEFAULT_SYSTEM)))
     whitelist_procs = set(_load(WHITELIST_FILE, []))
+    ignored_masks   = set(_load(IGNORED_MASKS_FILE,   []))
+    whitelist_masks = set(_load(WHITELIST_MASKS_FILE, []))
     active_users    = set(str(u) for u in _load(USERS_FILE, []))
     user_settings   = _load(SETTINGS_FILE, {})
     process_stats   = defaultdict(list, _load(STATS_FILE, {}))
@@ -128,6 +134,8 @@ def load_all() -> None:
 def save_all() -> None:
     _save(IGNORED_FILE,  list(ignored_procs))
     _save(WHITELIST_FILE, list(whitelist_procs))
+    _save(IGNORED_MASKS_FILE,   list(ignored_masks))
+    _save(WHITELIST_MASKS_FILE, list(whitelist_masks))
     _save(USERS_FILE,    list(active_users))
     _save(SETTINGS_FILE, user_settings)
     _save(STATS_FILE,    dict(process_stats))
@@ -148,7 +156,7 @@ SESSION.headers.update({"Content-Type": "application/json"})
 def _tg(method: str, **kwargs) -> Optional[Dict]:
     """Универсальный вызов Telegram Bot API с логированием ошибок."""
     try:
-        r = SESSION.post(f"{BASE_URL}/{method}", json=kwargs, timeout=15)
+        r = SESSION.post(f"{BASE_URL}/{method}", json=kwargs, timeout=35)
         data = r.json()
         if not data.get("ok"):
             log.warning("TG %s error: %s", method, data.get("description", "?"))
@@ -266,22 +274,30 @@ def kb_help() -> dict:
     ]}
 
 def kb_process(name: str) -> dict:
-    safe = name[:40]
+    import re as _re
+    safe   = name[:40]
+    prefix = _re.split(r"[/\\-]", name)[0][:35]
     return {"inline_keyboard": [
-        [{"text": "🚫 Игнорировать",    "callback_data": f"add_ignored_{safe}"},
-         {"text": "⭐ В белый список", "callback_data": f"add_whitelist_{safe}"}],
-        [{"text": "📊 Статистика",      "callback_data": f"pstat_{safe}"}],
-        [{"text": "🏠 Главное меню",    "callback_data": "menu_main"}],
+        [{"text": "🚫 Игнор точно",        "callback_data": f"add_ignored_{safe}"},
+         {"text": "⭐ Вайтлист точно",     "callback_data": f"add_whitelist_{safe}"}],
+        [{"text": f"🔇 Маска {prefix}*",   "callback_data": f"add_imask_{prefix}"},
+         {"text": f"✅ Маска {prefix}*",   "callback_data": f"add_wmask_{prefix}"}],
+        [{"text": "📊 Статистика",         "callback_data": f"pstat_{safe}"}],
+        [{"text": "🏠 Главное меню",       "callback_data": "menu_main"}],
     ]}
 
 
 def kb_process_compact(name: str) -> dict:
-    safe = name[:40]
-    return {"inline_keyboard": [[
-        {"text": "⛔ " + name[:20], "callback_data": "add_ignored_" + safe},
-        {"text": "⭐ Whitelist",    "callback_data": "add_whitelist_" + safe},
-        {"text": "📊 Stats",    "callback_data": "pstat_" + safe},
-    ]]}
+    import re as _re
+    safe   = name[:40]
+    prefix = _re.split(r"[/\\-]", name)[0][:25]
+    return {"inline_keyboard": [
+        [{"text": "⛔ " + name[:18],     "callback_data": "add_ignored_"  + safe},
+         {"text": "⭐ WL",              "callback_data": "add_whitelist_" + safe}],
+        [{"text": "🔇 " + prefix + "*", "callback_data": "add_imask_"    + prefix},
+         {"text": "✅ " + prefix + "*", "callback_data": "add_wmask_"    + prefix},
+         {"text": "📊",                 "callback_data": "pstat_"         + safe}],
+    ]}
 
 def kb_status() -> dict:
     return {"inline_keyboard": [[
@@ -409,8 +425,8 @@ def should_notify(info: Dict, cid: str) -> bool:
         return False
     mode = s["mode"]
     name = info["name"]
-    in_wl = name in whitelist_procs
-    in_bl = name in ignored_procs
+    in_wl = name in whitelist_procs or any(name.startswith(m) for m in whitelist_masks)
+    in_bl = name in ignored_procs  or any(name.startswith(m) for m in ignored_masks)
     in_sys= name in DEFAULT_SYSTEM and s["ignore_system"]
     if mode == "whitelist":
         return in_wl
@@ -565,6 +581,26 @@ def handle_command(msg: dict) -> None:
             cmd_history(cid, arg)
         else:
             send_message(cid, "Пример: <code>/history python3</code>")
+    elif cmd == "/imask":
+        if arg:
+            ignored_masks.add(arg)
+            _save(IGNORED_MASKS_FILE, list(ignored_masks))
+            send_message(cid, f"🔇 Маска <code>{arg}*</code> добавлена в игнорируемые")
+        else:
+            masks = sorted(ignored_masks)
+            txt = "🔇 <b>Маски игнора</b>\n" + ("\n".join(f"• <code>{m}*</code>" for m in masks) or "пусто")
+            txt += "\n\nДобавить: <code>/imask kworker</code>"
+            send_message(cid, txt)
+    elif cmd == "/wmask":
+        if arg:
+            whitelist_masks.add(arg)
+            _save(WHITELIST_MASKS_FILE, list(whitelist_masks))
+            send_message(cid, f"✅ Маска <code>{arg}*</code> добавлена в белый список")
+        else:
+            masks = sorted(whitelist_masks)
+            txt = "✅ <b>Маски вайтлиста</b>\n" + ("\n".join(f"• <code>{m}*</code>" for m in masks) or "пусто")
+            txt += "\n\nДобавить: <code>/wmask myapp</code>"
+            send_message(cid, txt)
     elif cid not in active_users:
         send_message(cid, "⚠️ Напиши /start для активации бота.")
     else:
@@ -738,6 +774,20 @@ def _dispatch_callback(cd: str, cid: str, mid: int) -> None:
         whitelist_procs.add(name)
         _save(WHITELIST_FILE, list(whitelist_procs))
         send_message(cid, f"⭐ <code>{name}</code> добавлен в белый список", edit_id=mid)
+
+    # ─── маска игнора ───
+    elif cd.startswith("add_imask_"):
+        mask = cd[len("add_imask_"):]
+        ignored_masks.add(mask)
+        _save(IGNORED_MASKS_FILE, list(ignored_masks))
+        send_message(cid, f"🔇 Маска <code>{mask}*</code> добавлена в игнорируемые", edit_id=mid)
+
+    # ─── маска вайтлиста ───
+    elif cd.startswith("add_wmask_"):
+        mask = cd[len("add_wmask_"):]
+        whitelist_masks.add(mask)
+        _save(WHITELIST_MASKS_FILE, list(whitelist_masks))
+        send_message(cid, f"✅ Маска <code>{mask}*</code> добавлена в белый список", edit_id=mid)
 
     # ─── статистика процесса ───
     elif cd.startswith("pstat_"):
@@ -920,7 +970,7 @@ def process_monitor() -> None:
 # ─────────────────────────────────────────────
 def main() -> None:
     log.info("=" * 55)
-    log.info("🚀  Process Monitor Pro  v2.0")
+    log.info("🚀  Process Monitor Pro  v2.1")
     log.info("=" * 55)
 
     load_all()
