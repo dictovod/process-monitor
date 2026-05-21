@@ -160,7 +160,7 @@ systemctl status process-monitor | head -5
 ```
 
 
-Для новичка:  
+# Для новичка:  
 Уже на сервере s1, выполни:
 
 ```bash
