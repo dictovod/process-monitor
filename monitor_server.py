@@ -289,6 +289,16 @@ def kb_masks() -> dict:
         [{"text": "🔙 Главное меню",     "callback_data": "menu_main"}],
     ]}
 
+def kb_export() -> dict:
+    return {"inline_keyboard": [
+        [{"text": "📄 Файл: игнорируемые процессы",  "callback_data": "export_file_ignored"}],
+        [{"text": "📄 Файл: белый список",            "callback_data": "export_file_whitelist"}],
+        [{"text": "📄 Файл: маски игнора",            "callback_data": "export_file_imasks"}],
+        [{"text": "📄 Файл: маски вайтлиста",         "callback_data": "export_file_wmasks"}],
+        [{"text": "📦 Всё одним файлом",              "callback_data": "export_file_all"}],
+        [{"text": "🔙 Главное меню",                  "callback_data": "menu_main"}],
+    ]}
+
 def kb_list_page(list_type: str, page: int, total_pages: int,
                  items: List[str]) -> dict:
     PER   = 8
@@ -350,24 +360,27 @@ def kb_help() -> dict:
 def kb_process(name: str) -> dict:
     safe   = name[:40]
     prefix = _make_prefix(name)
+    # Показываем маску с * чтобы было понятно что будет заблокировано
+    mask_label = f"{prefix}*" if prefix != name else f"{prefix}"
     return {"inline_keyboard": [
-        [{"text": "🚫 Игнор точно",      "callback_data": f"add_ignored_{safe}"},
-         {"text": "⭐ Вайтлист точно",   "callback_data": f"add_whitelist_{safe}"}],
-        [{"text": f"🔇 Маска «{prefix}»","callback_data": f"add_imask_{prefix}"},
-         {"text": f"✅ Маска «{prefix}»","callback_data": f"add_wmask_{prefix}"}],
-        [{"text": "📊 Статистика",       "callback_data": f"pstat_{safe}"}],
-        [{"text": "🏠 Главное меню",     "callback_data": "menu_main"}],
+        [{"text": "🚫 Игнор точно",                  "callback_data": f"add_ignored_{safe}"},
+         {"text": "⭐ Вайтлист точно",               "callback_data": f"add_whitelist_{safe}"}],
+        [{"text": f"🔇 Игнор маску {mask_label}",    "callback_data": f"add_imask_{prefix}"},
+         {"text": f"✅ Вайтлист маску {mask_label}", "callback_data": f"add_wmask_{prefix}"}],
+        [{"text": "📊 Статистика",                   "callback_data": f"pstat_{safe}"}],
+        [{"text": "🏠 Главное меню",                 "callback_data": "menu_main"}],
     ]}
 
 def kb_process_compact(name: str) -> dict:
     safe   = name[:40]
     prefix = _make_prefix(name)
+    mask_label = f"{prefix}*" if prefix != name else prefix
     return {"inline_keyboard": [
-        [{"text": "⛔ " + name[:18],     "callback_data": "add_ignored_"  + safe},
-         {"text": "⭐ WL",              "callback_data": "add_whitelist_" + safe}],
-        [{"text": "🔇 " + prefix + "*", "callback_data": "add_imask_"    + prefix},
-         {"text": "✅ " + prefix + "*", "callback_data": "add_wmask_"    + prefix},
-         {"text": "📊",                 "callback_data": "pstat_"         + safe}],
+        [{"text": "⛔ " + name[:18],          "callback_data": "add_ignored_"  + safe},
+         {"text": "⭐ WL",                    "callback_data": "add_whitelist_" + safe}],
+        [{"text": "🔇 " + mask_label,         "callback_data": "add_imask_"    + prefix},
+         {"text": "✅ " + mask_label,         "callback_data": "add_wmask_"    + prefix},
+         {"text": "📊",                        "callback_data": "pstat_"         + safe}],
     ]}
 
 def kb_status() -> dict:
@@ -763,6 +776,52 @@ def _dispatch_callback(cd: str, cid: str, mid: int) -> None:
     elif cd == "menu_stats":
         send_message(cid, "📈 <b>Статистика процессов</b>",
                      markup=kb_stats_menu(), edit_id=mid)
+
+    elif cd == "menu_export":
+        send_message(cid,
+            "📤 <b>Экспорт списков</b>\n\n"
+            "Получи файлы со списками — удобно проанализировать что накопилось "
+            "и решить какие процессы подозрительные.",
+            markup=kb_export(), edit_id=mid)
+
+    # ─── экспорт файлами ───
+    elif cd.startswith("export_file_"):
+        kind = cd[len("export_file_"):]
+        now  = datetime.now().strftime("%Y%m%d_%H%M")
+        if kind == "ignored":
+            data    = sorted(ignored_procs)
+            content = json.dumps(data, ensure_ascii=False, indent=2)
+            send_document(cid, f"ignored_{now}.json", content,
+                          caption=f"🚫 Игнорируемые процессы ({len(data)} шт)")
+        elif kind == "whitelist":
+            data    = sorted(whitelist_procs)
+            content = json.dumps(data, ensure_ascii=False, indent=2)
+            send_document(cid, f"whitelist_{now}.json", content,
+                          caption=f"⭐ Белый список ({len(data)} шт)")
+        elif kind == "imasks":
+            data    = sorted(ignored_masks)
+            content = json.dumps(data, ensure_ascii=False, indent=2)
+            send_document(cid, f"ignored_masks_{now}.json", content,
+                          caption=f"🔇 Маски игнора ({len(data)} шт)")
+        elif kind == "wmasks":
+            data    = sorted(whitelist_masks)
+            content = json.dumps(data, ensure_ascii=False, indent=2)
+            send_document(cid, f"whitelist_masks_{now}.json", content,
+                          caption=f"✅ Маски вайтлиста ({len(data)} шт)")
+        elif kind == "all":
+            bundle = {
+                "ignored_processes":   sorted(ignored_procs),
+                "whitelist_processes": sorted(whitelist_procs),
+                "ignored_masks":       sorted(ignored_masks),
+                "whitelist_masks":     sorted(whitelist_masks),
+                "exported_at":         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            content = json.dumps(bundle, ensure_ascii=False, indent=2)
+            total   = sum(len(v) for v in bundle.values() if isinstance(v, list))
+            send_document(cid, f"all_lists_{now}.json", content,
+                          caption=f"📦 Все списки ({total} записей)")
+        send_message(cid, "📤 Файл отправлен. Можешь поделиться им для анализа.",
+                     markup=kb_export())
 
     elif cd == "menu_help":
         send_message(cid, "❓ <b>Помощь и документация</b>\n\nВыберите раздел:",
