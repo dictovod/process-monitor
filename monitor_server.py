@@ -217,10 +217,12 @@ def send_document(chat_id: str, filename: str, content: str, caption: str = "") 
     try:
         import io
         file_bytes = content.encode("utf-8")
-        r = SESSION.post(
+        # Используем отдельный запрос без Content-Type: application/json,
+        # иначе multipart/form-data не работает
+        r = requests.post(
             f"{BASE_URL}/sendDocument",
             data={"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"},
-            files={"document": (filename, io.BytesIO(file_bytes), "text/plain")},
+            files={"document": (filename, io.BytesIO(file_bytes), "application/octet-stream")},
             timeout=60,
         )
         data = r.json()
@@ -788,25 +790,26 @@ def _dispatch_callback(cd: str, cid: str, mid: int) -> None:
     elif cd.startswith("export_file_"):
         kind = cd[len("export_file_"):]
         now  = datetime.now().strftime("%Y%m%d_%H%M")
+        ok   = False
         if kind == "ignored":
             data    = sorted(ignored_procs)
             content = json.dumps(data, ensure_ascii=False, indent=2)
-            send_document(cid, f"ignored_{now}.json", content,
+            ok = send_document(cid, f"ignored_{now}.json", content,
                           caption=f"🚫 Игнорируемые процессы ({len(data)} шт)")
         elif kind == "whitelist":
             data    = sorted(whitelist_procs)
             content = json.dumps(data, ensure_ascii=False, indent=2)
-            send_document(cid, f"whitelist_{now}.json", content,
+            ok = send_document(cid, f"whitelist_{now}.json", content,
                           caption=f"⭐ Белый список ({len(data)} шт)")
         elif kind == "imasks":
             data    = sorted(ignored_masks)
             content = json.dumps(data, ensure_ascii=False, indent=2)
-            send_document(cid, f"ignored_masks_{now}.json", content,
+            ok = send_document(cid, f"ignored_masks_{now}.json", content,
                           caption=f"🔇 Маски игнора ({len(data)} шт)")
         elif kind == "wmasks":
             data    = sorted(whitelist_masks)
             content = json.dumps(data, ensure_ascii=False, indent=2)
-            send_document(cid, f"whitelist_masks_{now}.json", content,
+            ok = send_document(cid, f"whitelist_masks_{now}.json", content,
                           caption=f"✅ Маски вайтлиста ({len(data)} шт)")
         elif kind == "all":
             bundle = {
@@ -818,10 +821,11 @@ def _dispatch_callback(cd: str, cid: str, mid: int) -> None:
             }
             content = json.dumps(bundle, ensure_ascii=False, indent=2)
             total   = sum(len(v) for v in bundle.values() if isinstance(v, list))
-            send_document(cid, f"all_lists_{now}.json", content,
+            ok = send_document(cid, f"all_lists_{now}.json", content,
                           caption=f"📦 Все списки ({total} записей)")
-        send_message(cid, "📤 Файл отправлен. Можешь поделиться им для анализа.",
-                     markup=kb_export())
+        if not ok:
+            send_message(cid, "❌ Не удалось отправить файл. Проверь лог: tail -20 /root/Desktop/process-monitor/monitor.log",
+                         markup=kb_export())
 
     elif cd == "menu_help":
         send_message(cid, "❓ <b>Помощь и документация</b>\n\nВыберите раздел:",
