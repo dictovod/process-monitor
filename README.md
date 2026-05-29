@@ -155,6 +155,8 @@ kworker/\d+ → только kworker с номером (regex)
 - Зависимости устанавливаются автоматически: `psutil`, `requests`
 
 ---
+<img width="452" height="479" alt="image" src="https://github.com/user-attachments/assets/4e1bf85b-e93f-4e48-9c24-05f359bf90ce" />
+
 
 ## ❓ Частые вопросы
 
