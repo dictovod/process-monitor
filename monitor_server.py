@@ -362,28 +362,37 @@ def kb_help() -> dict:
 def kb_process(name: str) -> dict:
     safe   = name[:40]
     prefix = _make_prefix(name)
-    # Показываем маску с * чтобы было понятно что будет заблокировано
-    mask_label = f"{prefix}*" if prefix != name else f"{prefix}"
-    return {"inline_keyboard": [
-        [{"text": "🚫 Игнор точно",                  "callback_data": f"add_ignored_{safe}"},
-         {"text": "⭐ Вайтлист точно",               "callback_data": f"add_whitelist_{safe}"}],
-        [{"text": f"🔇 Игнор маску {mask_label}",    "callback_data": f"add_imask_{prefix}"},
-         {"text": f"✅ Вайтлист маску {mask_label}", "callback_data": f"add_wmask_{prefix}"}],
-        [{"text": "📊 Статистика",                   "callback_data": f"pstat_{safe}"}],
-        [{"text": "🏠 Главное меню",                 "callback_data": "menu_main"}],
-    ]}
+    rows = [
+        [
+            {"text": "🔕 В игнор", "callback_data": f"add_ignored_{safe}"},
+            {"text": "⭐ В белый список", "callback_data": f"add_whitelist_{safe}"}
+        ]
+    ]
+    if prefix != name:
+        rows.append([
+            {"text": f"🔇 Маска: {prefix}*", "callback_data": f"add_imask_{prefix}"},
+            {"text": f"✅ Маска WL: {prefix}*", "callback_data": f"add_wmask_{prefix}"}
+        ])
+    rows.append([{"text": "📊 Статистика", "callback_data": f"pstat_{safe}"}])
+    rows.append([{"text": "🏠 Главное меню", "callback_data": "menu_main"}])
+    return {"inline_keyboard": rows}
 
 def kb_process_compact(name: str) -> dict:
     safe   = name[:40]
     prefix = _make_prefix(name)
-    mask_label = f"{prefix}*" if prefix != name else prefix
-    return {"inline_keyboard": [
-        [{"text": "⛔ " + name[:18],          "callback_data": "add_ignored_"  + safe},
-         {"text": "⭐ WL",                    "callback_data": "add_whitelist_" + safe}],
-        [{"text": "🔇 " + mask_label,         "callback_data": "add_imask_"    + prefix},
-         {"text": "✅ " + mask_label,         "callback_data": "add_wmask_"    + prefix},
-         {"text": "📊",                        "callback_data": "pstat_"         + safe}],
-    ]}
+    rows = [
+        [
+            {"text": "🔕 В игнор", "callback_data": f"add_ignored_{safe}"},
+            {"text": "⭐ В белый список", "callback_data": f"add_whitelist_{safe}"}
+        ]
+    ]
+    if prefix != name:
+        rows.append([
+            {"text": f"🔇 Маска: {prefix}*", "callback_data": f"add_imask_{prefix}"},
+            {"text": f"✅ Маска WL: {prefix}*", "callback_data": f"add_wmask_{prefix}"}
+        ])
+    rows.append([{"text": "📊 Статистика процесса", "callback_data": f"pstat_{safe}"}])
+    return {"inline_keyboard": rows}
 
 def kb_status() -> dict:
     return {"inline_keyboard": [[
